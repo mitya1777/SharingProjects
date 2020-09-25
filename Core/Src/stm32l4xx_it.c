@@ -5,8 +5,11 @@ extern ADC_HandleTypeDef hadc1;
 extern TIM_HandleTypeDef htim6;
 
 uint8_t conversion = 0x00;
-uint16_t U1, U2;
+extern uint16_t U1[0x746];
+extern uint16_t U2[0x746];
+extern uint8_t flag_UART_start;
 uint16_t U_out;
+uint16_t count = 0x00;
 
 
 
@@ -56,35 +59,41 @@ void SysTick_Handler(void)
 
 void ADC1_2_IRQHandler(void)
 {
-  HAL_ADC_IRQHandler(&hadc1);
+	if ((ADC1 -> ISR & ADC_ISR_EOC) != 0x00)
+	{
+		ADC1 -> ISR |= ADC_ISR_EOC;
+		U1[count] = ADC1 -> DR;
+	}
 
-  if ((ADC1 -> ISR & ADC_ISR_EOC) != 0x00)
-  {
-	  U1 = ADC1 -> DR;
-	  conversion ++;
+	if ((ADC1 -> ISR & ADC_ISR_EOS) != 0x00)
+	{
+		ADC1 -> ISR |= ADC_ISR_EOS;
+		U2[count] = ADC1 -> DR;
+	}
 
-	  if (conversion == 0x01)
-	  {
-		  U2 = ADC1 -> DR;
-		  conversion = 0x00;
-	  }
-  }
+	DAC1 -> DHR12R2 = U_out;
+
+	count ++;
+	U_out ++;
+	if (count == NUM_OF_STEPS)
+	{
+		count = 0x00;
+		flag_UART_start = 0x01;
+	}
+
+	if (U_out == U_EDGE)
+	{
+		U_out = 0x00;
+	}
 }
 
 
 void TIM6_DAC_IRQHandler(void)
 {
   HAL_TIM_IRQHandler(&htim6);
-//  HAL_DAC_IRQHandler(&hdac1);
 
   ADC1 -> CR |= ADC_CR_ADSTART;
-  DAC1 -> DHR12R2 = U_out;
 
-  U_out ++;
 
-  if (U_out == U_EDGE)
-  {
-	  U_out = 0x00;
-  }
 }
 
