@@ -12,7 +12,7 @@ extern uint16_t tx_cnt;
 extern uint16_t U1[0xFFF];
 extern uint8_t button_on;
 extern uint8_t new_iteration;
-uint16_t Uset = 0x00;
+extern uint16_t Uset;
 
 void NMI_Handler(void)
 {}
@@ -78,14 +78,18 @@ void TIM6_DAC_IRQHandler(void)
   HAL_TIM_IRQHandler(&htim6);
 
   DAC1 -> DHR12R2 = Uset;
-  Uset ++;
 
+/*  Uset ++;
   if (Uset == 0xFFF)
   {
 	  Uset = 0x00;
 	  HAL_TIM_Base_Stop_IT(&htim6);
   }
-  ADC1 -> CR |= ADC_CR_ADSTART;
+*/
+ if ( DMA_bufer_is_updated == 0x00)
+ {
+	 ADC1 -> CR |= ADC_CR_ADSTART;
+ }
 }
 
 void EXTI0_IRQHandler(void)

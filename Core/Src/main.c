@@ -14,6 +14,7 @@ static void MX_DAC1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_USART1_UART_Init(void);
 
+uint16_t Uset;
 uint16_t DMA_buffer[0x03];
 uint16_t U1[0xFFF];
 uint16_t U2[0xFFF];
@@ -30,6 +31,12 @@ uint16_t byte2 = 0x00;
 
 uint8_t button_on = 0x00;
 uint8_t new_iteration = 0x00;
+uint8_t Rmes = R_MES;
+uint8_t Pcnst = P_CONST;
+
+float u1, u2, u3;
+float Icur;
+float Pcur;
 
 int main(void)
 {
@@ -51,6 +58,23 @@ HAL_TIM_Base_Start_IT(&htim6);
 	{
 		if (DMA_bufer_is_updated == 0x01)
 		{
+			u1 = (float) 3.3 * (DMA_buffer[0] / 0xFFF);
+			u2 = (float) 3.3 * (DMA_buffer[1] / 0xFFF);
+			u3 = (float) 3.3 * (DMA_buffer[2] / 0xFFF);
+
+			Icur = (u1 - u2) / Rmes;
+			Pcur = Icur * (u2 - u3);
+
+			if (Pcur < Pcnst)
+			{
+				Uset ++;
+			}
+
+			else if (Pcur > Pcnst)
+			{
+				Uset --;
+			}
+
 			for (uint8_t sw = 0x00; sw < 0x04; sw ++)
 			{
 				switch (sw)
@@ -305,9 +329,9 @@ static void MX_TIM6_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 0x9C3F;
+  htim6.Init.Prescaler = 0x00;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 1;
+  htim6.Init.Period = 0x01;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
