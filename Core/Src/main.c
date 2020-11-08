@@ -24,6 +24,12 @@ volatile uint8_t DMA_bufer_is_updated = 0x00;
 uint8_t UART_start_flag = 0x00;
 uint8_t transmittion_en = 0x00;
 uint16_t tx_cnt = 0x00;
+uint16_t u_rx = 0x00;
+uint16_t byte1 = 0x00;
+uint16_t byte2 = 0x00;
+
+uint8_t button_on = 0x00;
+uint8_t new_iteration = 0x00;
 
 int main(void)
 {
@@ -40,7 +46,6 @@ MX_USART1_UART_Init();
 HAL_ADC_Start_DMA(&hadc1, (uint32_t*) DMA_buffer, 0x03);
 HAL_TIM_Base_Start(&htim6);
 HAL_TIM_Base_Start_IT(&htim6);
-
 
 	while (1)
 	{
@@ -68,37 +73,92 @@ HAL_TIM_Base_Start_IT(&htim6);
 
 			if (DMA_bufer_index == 0xFFF)
 			{
-				//HAL_TIM_Base_Stop_IT(&htim6);
 				DMA_bufer_index = 0x00;
-
 				transmittion_en = 0x01;
 			}
 			DMA_bufer_is_updated = 0x00;
+			HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 		}
 
-		if (transmittion_en == 0x01)
+		if ((transmittion_en == 0x01) &&
+		   ((USART1 -> ISR & USART_ISR_TXE) != 0x00) &&
+		    (button_on == 0x01))
 		{
-			for (uint16_t i = 0x00; i < 0xFFF; i ++)
+			if ((USART1 -> CR1 & USART_CR1_TE) == 0x00)
 			{
-				if ((USART1 -> ISR & USART_ISR_TXE) == 0x00)
-				{
-					USART1 -> TDR = U1[i];
-				}
+				USART1 -> CR1 |= USART_CR1_TE;
 			}
-			transmittion_en = 0x00;
-			HAL_TIM_Base_Start_IT(&htim6);
+
+			byte1 = (U1[u_rx] & 0xFF0) >> 0x04;
+			USART1 -> TDR = byte1;
+
+			while ((USART1 -> ISR & USART_ISR_TXE) == 0x00);
+			byte2 = (U1[u_rx] & 0x00F) << 0x04;
+			USART1 -> TDR = byte2 ;
+
+			u_rx ++;
+
+			if (u_rx == 0xFFF)
+			{
+				USART1 -> CR1 &= ~USART_CR1_TE;
+				u_rx = 0x00;
+				transmittion_en ++;
+				button_on = 0x00;
+			}
 		}
 
-/*		for (uint8_t u2 = 0x00; u2 <= 0xFFF; u2 ++)
+		if ((transmittion_en == 0x02) &&
+		   ((USART1 -> ISR & USART_ISR_TXE) != 0x00) &&
+		    (button_on == 0x01))
 		{
-			USART1 -> TDR = U2[u2];
-		}
+			if ((USART1 -> CR1 & USART_CR1_TE) == 0x00)
+			{
+				USART1 -> CR1 |= USART_CR1_TE;
+			}
 
-		for (uint8_t u3 = 0x00; u3 <= 0xFFF; u3 ++)
-		{
-			USART1 -> TDR = U3[u3];
+			byte1 = (U2[u_rx] & 0xFF0) >> 0x04;
+			USART1 -> TDR = byte1;
+
+			while ((USART1 -> ISR & USART_ISR_TXE) == 0x00);
+			byte2 = (U2[u_rx] & 0x00F) << 0x04;
+			USART1 -> TDR = byte2 ;
+
+			u_rx ++;
+
+			if (u_rx == 0xFFF)
+			{
+				USART1 -> CR1 &= ~USART_CR1_TE;
+				u_rx = 0x00;
+				transmittion_en ++;
+				button_on = 0x00;
+			}
 		}
-*/
+		if ((transmittion_en == 0x03) &&
+		   ((USART1 -> ISR & USART_ISR_TXE) != 0x00) &&
+		    (button_on == 0x01))
+		{
+			if ((USART1 -> CR1 & USART_CR1_TE) == 0x00)
+			{
+				USART1 -> CR1 |= USART_CR1_TE;
+			}
+
+			byte1 = (U3[u_rx] & 0xFF0) >> 0x04;
+			USART1 -> TDR = byte1;
+
+			while ((USART1 -> ISR & USART_ISR_TXE) == 0x00);
+			byte2 = (U3[u_rx] & 0x00F) << 0x04;
+			USART1 -> TDR = byte2 ;
+
+			u_rx ++;
+
+			if (u_rx == 0xFFF)
+			{
+				USART1 -> CR1 &= ~USART_CR1_TE;
+				u_rx = 0x00;
+				button_on = 0x00;
+				new_iteration = 0x01;
+			}
+		}
 	}
 }
 
@@ -154,11 +214,6 @@ void SystemClock_Config(void)
   }
 }
 
-/**
-  * @brief ADC1 Initialization Function
-  * @param None
-  * @retval None
-  */
 static void MX_ADC1_Init(void)
 {
   ADC_MultiModeTypeDef multimode = {0};
@@ -222,25 +277,10 @@ static void MX_ADC1_Init(void)
    HAL_ADC_Start(&hadc1);
 }
 
-/**
-  * @brief DAC1 Initialization Function
-  * @param None
-  * @retval None
-  */
 static void MX_DAC1_Init(void)
 {
-
-  /* USER CODE BEGIN DAC1_Init 0 */
-
-  /* USER CODE END DAC1_Init 0 */
-
   DAC_ChannelConfTypeDef sConfig = {0};
 
-  /* USER CODE BEGIN DAC1_Init 1 */
-
-  /* USER CODE END DAC1_Init 1 */
-  /** DAC Initialization 
-  */
   hdac1.Instance = DAC1;
   if (HAL_DAC_Init(&hdac1) != HAL_OK)
   {
@@ -260,23 +300,10 @@ static void MX_DAC1_Init(void)
   DAC1 -> CR |= DAC_CR_EN2;
 }
 
-/**
-  * @brief TIM6 Initialization Function
-  * @param None
-  * @retval None
-  */
 static void MX_TIM6_Init(void)
 {
-
-  /* USER CODE BEGIN TIM6_Init 0 */
-
-  /* USER CODE END TIM6_Init 0 */
-
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-  /* USER CODE BEGIN TIM6_Init 1 */
-
-  /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 0x9C3F;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
@@ -294,15 +321,10 @@ static void MX_TIM6_Init(void)
   }
 }
 
-/**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
 static void MX_USART1_UART_Init(void)
 {
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 19200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -317,27 +339,14 @@ static void MX_USART1_UART_Init(void)
   }
 }
 
-/** 
-  * Enable DMA controller clock
-  */
 static void MX_DMA_Init(void) 
 {
-
-  /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
 
-  /* DMA interrupt init */
-  /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
-
 }
 
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -367,31 +376,21 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PA0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+   HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
 }
 
 void Error_Handler(void)
-{
-  /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-
-  /* USER CODE END Error_Handler_Debug */
-}
+{}
 
 #ifdef  USE_FULL_ASSERT
-/**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
-void assert_failed(uint8_t *file, uint32_t line)
-{ 
-  /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  /* USER CODE END 6 */
-}
-#endif /* USE_FULL_ASSERT */
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+void assert_failed(uint8_t *file, uint32_t line)
+{ }
+#endif /* USE_FULL_ASSERT */
