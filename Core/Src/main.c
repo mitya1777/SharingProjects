@@ -16,11 +16,11 @@ static void MX_USART1_UART_Init(void);
 
 uint16_t Uset;
 uint16_t DMA_buffer[0x03];
-uint16_t U1[0xFFF];
-uint16_t U2[0xFFF];
-uint16_t U3[0xFFF];
+uint16_t U1[U_ARRAY_SIZE];
+uint16_t U2[U_ARRAY_SIZE];
+uint16_t U3[U_ARRAY_SIZE];
 
-uint16_t DMA_bufer_index = 0x00;
+uint32_t DMA_bufer_index = 0x00;
 volatile uint8_t DMA_bufer_is_updated = 0x00;
 uint8_t UART_start_flag = 0x00;
 uint8_t transmittion_en = 0x00;
@@ -58,6 +58,9 @@ HAL_TIM_Base_Start_IT(&htim6);
 	{
 		if (DMA_bufer_is_updated == 0x01)
 		{
+			/*
+			 * 		Current power consumption calculating
+			 */
 			u1 = (float) 3.3 * (DMA_buffer[0] / 0xFFF);
 			u2 = (float) 3.3 * (DMA_buffer[1] / 0xFFF);
 			u3 = (float) 3.3 * (DMA_buffer[2] / 0xFFF);
@@ -65,6 +68,9 @@ HAL_TIM_Base_Start_IT(&htim6);
 			Icur = (u1 - u2) / Rmes;
 			Pcur = Icur * (u2 - u3);
 
+			/*
+			 * 		Impact action
+			 */
 			if (Pcur < Pcnst)
 			{
 				Uset ++;
@@ -75,6 +81,9 @@ HAL_TIM_Base_Start_IT(&htim6);
 				Uset --;
 			}
 
+			/*
+			 * 		Store voltage data capturing by DMA in the base array
+			 */
 			for (uint8_t sw = 0x00; sw < 0x04; sw ++)
 			{
 				switch (sw)
@@ -95,15 +104,20 @@ HAL_TIM_Base_Start_IT(&htim6);
 
 			DMA_bufer_index ++;
 
-			if (DMA_bufer_index == 0xFFF)
+			if ((Uset == 0xFFF) || (DMA_bufer_index == U_ARRAY_SIZE))
 			{
+				NVIC_DisableIRQ(TIM6_DAC_IRQn);
+				NVIC_EnableIRQ(EXTI0_IRQn);
+				//DAC1 -> DHR12R2 = 0x00;
 				DMA_bufer_index = 0x00;
 				transmittion_en = 0x01;
 			}
 			DMA_bufer_is_updated = 0x00;
-			HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 		}
 
+		/*
+		 * 		Launch data transmission in a full transistor open case
+		 */
 		if ((transmittion_en == 0x01) &&
 		   ((USART1 -> ISR & USART_ISR_TXE) != 0x00) &&
 		    (button_on == 0x01))
@@ -329,7 +343,7 @@ static void MX_TIM6_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 0x00;
+  htim6.Init.Prescaler = 0x0A;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim6.Init.Period = 0x01;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
