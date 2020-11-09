@@ -92,6 +92,7 @@ void EXTI0_IRQHandler(void)
    {
 	   transmittion_en = 0x00;
 	   new_iteration = 0x00;
+	   NVIC_EnableIRQ(TIM6_DAC_IRQn);
 	   TIM6 -> CR1 |= TIM_CR1_CEN;
    }
 }

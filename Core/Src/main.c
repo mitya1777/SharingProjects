@@ -121,6 +121,8 @@ TIM6 -> CR1 |= TIM_CR1_CEN;
 		   ((USART1 -> ISR & USART_ISR_TXE) != 0x00) &&
 		    (button_on == 0x01))
 		{
+			GPIOE -> ODR &= ~GPIO_ODR_OD8;
+
 			if ((USART1 -> CR1 & USART_CR1_TE) == 0x00)
 			{
 				USART1 -> CR1 |= USART_CR1_TE;
@@ -194,6 +196,7 @@ TIM6 -> CR1 |= TIM_CR1_CEN;
 				u_rx = 0x00;
 				button_on = 0x00;
 				new_iteration = 0x01;
+				GPIOE -> ODR |= GPIO_ODR_OD8;
 			}
 		}
 	}
