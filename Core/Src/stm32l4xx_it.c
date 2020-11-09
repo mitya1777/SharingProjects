@@ -59,8 +59,7 @@ void SysTick_Handler(void)
 
 void DMA1_Channel1_IRQHandler(void)
 {
-   DMA1 -> IFCR |= DMA_IFCR_CTCIF1;
-   //HAL_DMA_IRQHandler(&hdma_adc1);
+   DMA1 -> IFCR |= DMA_IFCR_CGIF1;
    DMA_bufer_is_updated = 0x01;
  }
 
@@ -76,33 +75,23 @@ void USART1_IRQHandler(void)
 
 void TIM6_DAC_IRQHandler(void)
 {
-  //HAL_TIM_IRQHandler(&htim6);
   TIM6 -> SR &= ~TIM_SR_UIF;
   DAC1 -> DHR12R2 = Uset;
-
-/*  Uset ++;
-  if (Uset == 0xFFF)
+  if (DMA_bufer_is_updated == 0x00)
   {
-	  Uset = 0x00;
-	  HAL_TIM_Base_Stop_IT(&htim6);
+	  ADC1 -> CR |= ADC_CR_ADSTART;
   }
-*/
- if (DMA_bufer_is_updated == 0x00)
- {
-	 ADC1 -> CR |= ADC_CR_ADSTART;
- }
 }
 
 void EXTI0_IRQHandler(void)
 {
    EXTI -> PR1 |= EXTI_PR1_PIF0;
-   //HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
    button_on = 0x01;
 
    if (new_iteration != 0x00)
    {
 	   transmittion_en = 0x00;
-	   HAL_TIM_Base_Start_IT(&htim6);
 	   new_iteration = 0x00;
+	   TIM6 -> CR1 |= TIM_CR1_CEN;
    }
 }
