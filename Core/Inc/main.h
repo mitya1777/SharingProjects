@@ -7,8 +7,8 @@ extern "C" {
 
 #include "stm32l4xx_hal.h"
 
-#define		R_MES				0x0A
-#define		P_CONST				0x06
+#define		R_MES				0.22
+#define		P_CONST				0.1
 #define 	U_ARRAY_SIZE		0xFFF//FFFFFF
 
 

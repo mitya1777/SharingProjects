@@ -31,8 +31,9 @@ uint16_t byte2 = 0x00;
 
 uint8_t button_on = 0x00;
 uint8_t new_iteration = 0x00;
-uint8_t Rmes = R_MES;
-uint8_t Pcnst = P_CONST;
+float Rmes = R_MES;
+float Pcnst = P_CONST;
+
 
 float u1, u2, u3;
 float Icur;
@@ -40,7 +41,7 @@ float Pcur;
 
 int main(void)
 {
-HAL_Init();
+ HAL_Init();
 SystemClock_Config();
 
 MX_GPIO_Init();
@@ -53,6 +54,8 @@ MX_USART1_UART_Init();
 HAL_ADC_Start_DMA(&hadc1, (uint32_t*) DMA_buffer, 0x03);
 TIM6 -> CR1 |= TIM_CR1_CEN;
 
+
+
 	while (1)
 	{
 		if (DMA_bufer_is_updated == 0x01)
@@ -60,147 +63,160 @@ TIM6 -> CR1 |= TIM_CR1_CEN;
 			/*
 			 * 		Current power consumption calculating
 			 */
-			u1 = 3.3 * ((float) DMA_buffer[0] / 0xFFF);
-			u2 = 3.3 * ((float) DMA_buffer[1] / 0xFFF);
-			u3 = 3.3 * ((float) DMA_buffer[2] / 0xFFF);
+			u1 = 2 * (3.3 * ((float) DMA_buffer[0] / 0xFFF));
+			u2 = 2 * (3.3 * ((float) DMA_buffer[1] / 0xFFF));
+			u3 = 2 * (3.3 * ((float) DMA_buffer[2] / 0xFFF));
 
-			Icur = (u1 - u2) / Rmes;
-			Pcur = Icur * (u2 - u3);
+			Icur = (u1 - u3) / Rmes;
+			Pcur = Icur * (u3 - u2);
 
 			/*
 			 * 		Impact action
 			 */
-			if (Pcur < Pcnst)
-			{
-				Uset ++;
-			}
 
-			else if (Pcur > Pcnst)
-			{
-				Uset --;
-			}
+			if ((Pcur > (0.9 * Pcnst)) &&
+				(Pcur < (1.1 * Pcnst)))
+			{	}
 
-			/*
-			 * 		Store voltage data capturing by DMA in the base array
-			 */
-			for (uint8_t sw = 0x00; sw < 0x04; sw ++)
+			else
 			{
-				switch (sw)
+				if (Pcur < Pcnst)
 				{
-					case 0:
-						U1[DMA_bufer_index] = DMA_buffer[0];
-						break;
-
-					case 1:
-						U2[DMA_bufer_index] = DMA_buffer[1];
-						break;
-
-					case 2:
-						U3[DMA_bufer_index] = DMA_buffer[2];
-						break;
+					Uset ++;
 				}
-			}
 
-			DMA_bufer_index ++;
-
-			if ((Uset == 0xFFC) || (DMA_bufer_index == U_ARRAY_SIZE))
-			{
-				NVIC_DisableIRQ(TIM6_DAC_IRQn);
-				NVIC_EnableIRQ(EXTI0_IRQn);
-				DMA_bufer_index = 0x00;
-				transmittion_en = 0x01;
-				GPIOE -> ODR |= GPIO_ODR_OD8;
-			}
-			DMA_bufer_is_updated = 0x00;
-		}
-
-		/*
-		 * 		Launch data transmission in a full transistor open case
-		 */
-		if ((transmittion_en == 0x01) &&
-		   ((USART1 -> ISR & USART_ISR_TXE) != 0x00) &&
-		    (button_on == 0x01))
-		{
-			GPIOE -> ODR &= ~GPIO_ODR_OD8;
-
-			if ((USART1 -> CR1 & USART_CR1_TE) == 0x00)
-			{
-				USART1 -> CR1 |= USART_CR1_TE;
-			}
-
-			byte1 = (U1[u_rx] & 0xFF0) >> 0x04;
-			USART1 -> TDR = byte1;
-
-			while ((USART1 -> ISR & USART_ISR_TXE) == 0x00);
-			byte2 = (U1[u_rx] & 0x00F) << 0x04;
-			USART1 -> TDR = byte2 ;
-
-			u_rx ++;
-
-			if (u_rx == 0xFFF)
-			{
-				USART1 -> CR1 &= ~USART_CR1_TE;
-				u_rx = 0x00;
-				transmittion_en ++;
-				button_on = 0x00;
-			}
-		}
-
-		if ((transmittion_en == 0x02) &&
-		   ((USART1 -> ISR & USART_ISR_TXE) != 0x00) &&
-		    (button_on == 0x01))
-		{
-			if ((USART1 -> CR1 & USART_CR1_TE) == 0x00)
-			{
-				USART1 -> CR1 |= USART_CR1_TE;
-			}
-
-			byte1 = (U2[u_rx] & 0xFF0) >> 0x04;
-			USART1 -> TDR = byte1;
-
-			while ((USART1 -> ISR & USART_ISR_TXE) == 0x00);
-			byte2 = (U2[u_rx] & 0x00F) << 0x04;
-			USART1 -> TDR = byte2 ;
-
-			u_rx ++;
-
-			if (u_rx == 0xFFF)
-			{
-				USART1 -> CR1 &= ~USART_CR1_TE;
-				u_rx = 0x00;
-				transmittion_en ++;
-				button_on = 0x00;
-			}
-		}
-		if ((transmittion_en == 0x03) &&
-		   ((USART1 -> ISR & USART_ISR_TXE) != 0x00) &&
-		    (button_on == 0x01))
-		{
-			if ((USART1 -> CR1 & USART_CR1_TE) == 0x00)
-			{
-				USART1 -> CR1 |= USART_CR1_TE;
-			}
-
-			byte1 = (U3[u_rx] & 0xFF0) >> 0x04;
-			USART1 -> TDR = byte1;
-
-			while ((USART1 -> ISR & USART_ISR_TXE) == 0x00);
-			byte2 = (U3[u_rx] & 0x00F) << 0x04;
-			USART1 -> TDR = byte2 ;
-
-			u_rx ++;
-
-			if (u_rx == 0xFFF)
-			{
-				USART1 -> CR1 &= ~USART_CR1_TE;
-				u_rx = 0x00;
-				button_on = 0x00;
-				new_iteration = 0x01;
-				GPIOE -> ODR |= GPIO_ODR_OD8;
+				else if (Pcur > Pcnst)
+				{
+					Uset --;
+				}
 			}
 		}
 	}
 }
+//
+//
+//
+//			/*
+//			 * 		Store voltage data capturing by DMA in the base array
+//			 */
+//			for (uint8_t sw = 0x00; sw < 0x04; sw ++)
+//			{
+//				switch (sw)
+//				{
+//					case 0:
+//						U1[DMA_bufer_index] = DMA_buffer[0];
+//						break;
+//
+//					case 1:
+//						U2[DMA_bufer_index] = DMA_buffer[1];
+//						break;
+//
+//					case 2:
+//						U3[DMA_bufer_index] = DMA_buffer[2];
+//						break;
+//				}
+//			}
+//
+//			DMA_bufer_index ++;
+//
+//			if ((Uset == 0xFFC) || (DMA_bufer_index == U_ARRAY_SIZE))
+//			{
+//				NVIC_DisableIRQ(TIM6_DAC_IRQn);
+//				NVIC_EnableIRQ(EXTI0_IRQn);
+//				DMA_bufer_index = 0x00;
+//				transmittion_en = 0x01;
+//				GPIOE -> ODR |= GPIO_ODR_OD8;
+//			}
+//			DMA_bufer_is_updated = 0x00;
+//		}
+//
+//		/*
+//		 * 		Launch data transmission in a full transistor open case
+//		 */
+//		if ((transmittion_en == 0x01) &&
+//		   ((USART1 -> ISR & USART_ISR_TXE) != 0x00) &&
+//		    (button_on == 0x01))
+//		{
+//			GPIOE -> ODR &= ~GPIO_ODR_OD8;
+//
+//			if ((USART1 -> CR1 & USART_CR1_TE) == 0x00)
+//			{
+//				USART1 -> CR1 |= USART_CR1_TE;
+//			}
+//
+//			byte1 = (U1[u_rx] & 0xFF0) >> 0x04;
+//			USART1 -> TDR = byte1;
+//
+//			while ((USART1 -> ISR & USART_ISR_TXE) == 0x00);
+//			byte2 = (U1[u_rx] & 0x00F) << 0x04;
+//			USART1 -> TDR = byte2 ;
+//
+//			u_rx ++;
+//
+//			if (u_rx == 0xFFF)
+//			{
+//				USART1 -> CR1 &= ~USART_CR1_TE;
+//				u_rx = 0x00;
+//				transmittion_en ++;
+//				button_on = 0x00;
+//			}
+//		}
+//
+//		if ((transmittion_en == 0x02) &&
+//		   ((USART1 -> ISR & USART_ISR_TXE) != 0x00) &&
+//		    (button_on == 0x01))
+//		{
+//			if ((USART1 -> CR1 & USART_CR1_TE) == 0x00)
+//			{
+//				USART1 -> CR1 |= USART_CR1_TE;
+//			}
+//
+//			byte1 = (U2[u_rx] & 0xFF0) >> 0x04;
+//			USART1 -> TDR = byte1;
+//
+//			while ((USART1 -> ISR & USART_ISR_TXE) == 0x00);
+//			byte2 = (U2[u_rx] & 0x00F) << 0x04;
+//			USART1 -> TDR = byte2 ;
+//
+//			u_rx ++;
+//
+//			if (u_rx == 0xFFF)
+//			{
+//				USART1 -> CR1 &= ~USART_CR1_TE;
+//				u_rx = 0x00;
+//				transmittion_en ++;
+//				button_on = 0x00;
+//			}
+//		}
+//		if ((transmittion_en == 0x03) &&
+//		   ((USART1 -> ISR & USART_ISR_TXE) != 0x00) &&
+//		    (button_on == 0x01))
+//		{
+//			if ((USART1 -> CR1 & USART_CR1_TE) == 0x00)
+//			{
+//				USART1 -> CR1 |= USART_CR1_TE;
+//			}
+//
+//			byte1 = (U3[u_rx] & 0xFF0) >> 0x04;
+//			USART1 -> TDR = byte1;
+//
+//			while ((USART1 -> ISR & USART_ISR_TXE) == 0x00);
+//			byte2 = (U3[u_rx] & 0x00F) << 0x04;
+//			USART1 -> TDR = byte2 ;
+//
+//			u_rx ++;
+//
+//			if (u_rx == 0xFFF)
+//			{
+//				USART1 -> CR1 &= ~USART_CR1_TE;
+//				u_rx = 0x00;
+//				button_on = 0x00;
+//				new_iteration = 0x01;
+//				GPIOE -> ODR |= GPIO_ODR_OD8;
+//			}
+//		}
+//	}
+//}
 
 
 
@@ -345,7 +361,7 @@ static void MX_TIM6_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 0x10;
+  htim6.Init.Prescaler = 0x9C3F;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim6.Init.Period = 0x01;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;

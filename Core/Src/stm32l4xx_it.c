@@ -77,10 +77,10 @@ void TIM6_DAC_IRQHandler(void)
 {
   TIM6 -> SR &= ~TIM_SR_UIF;
   DAC1 -> DHR12R2 = Uset;
-  if (DMA_bufer_is_updated == 0x00)
-  {
+  //if (DMA_bufer_is_updated == 0x00)
+  //{
 	  ADC1 -> CR |= ADC_CR_ADSTART;
-  }
+  //}
 }
 
 void EXTI0_IRQHandler(void)
