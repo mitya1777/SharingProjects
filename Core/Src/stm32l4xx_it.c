@@ -10,9 +10,12 @@ extern uint8_t transmittion_en;
 extern volatile uint8_t DMA_bufer_is_updated;
 extern uint16_t tx_cnt;
 extern uint16_t U1[0xFFF];
+extern uint8_t sw_button;
 extern uint8_t button_on;
 extern uint8_t new_iteration;
 extern uint16_t Uset;
+extern float Pcnst;
+extern float Pset[P_NUM];
 
 void NMI_Handler(void)
 {}
@@ -77,22 +80,32 @@ void TIM6_DAC_IRQHandler(void)
 {
   TIM6 -> SR &= ~TIM_SR_UIF;
   DAC1 -> DHR12R2 = Uset;
-  //if (DMA_bufer_is_updated == 0x00)
-  //{
+  if (DMA_bufer_is_updated == 0x00)
+  {
 	  ADC1 -> CR |= ADC_CR_ADSTART;
-  //}
+  }
+
+  GPIOA -> ODR ^= GPIO_ODR_OD3;
 }
 
 void EXTI0_IRQHandler(void)
 {
    EXTI -> PR1 |= EXTI_PR1_PIF0;
-   button_on = 0x01;
 
-   if (new_iteration != 0x00)
+   Pcnst = Pset[sw_button];
+
+   if (sw_button > P_NUM)
    {
-	   transmittion_en = 0x00;
-	   new_iteration = 0x00;
-	   NVIC_EnableIRQ(TIM6_DAC_IRQn);
-	   TIM6 -> CR1 |= TIM_CR1_CEN;
+	   sw_button = 0x00;
    }
+
+   sw_button ++;
+
+//   if (new_iteration != 0x00)
+//   {
+//	   transmittion_en = 0x00;
+//	   new_iteration = 0x00;
+//	   NVIC_EnableIRQ(TIM6_DAC_IRQn);
+//	   TIM6 -> CR1 |= TIM_CR1_CEN;
+//   }
 }

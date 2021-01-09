@@ -7,9 +7,9 @@ extern "C" {
 
 #include "stm32l4xx_hal.h"
 
-#define		R_MES				0.22
-#define		P_CONST				0.1
-#define 	U_ARRAY_SIZE		0xFFF//FFFFFF
+#define		R_MES				3.333
+#define 	U_ARRAY_SIZE		0xFFF
+#define 	P_NUM				0x15
 
 
 void Error_Handler(void);

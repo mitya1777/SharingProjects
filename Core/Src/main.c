@@ -14,11 +14,14 @@ static void MX_DAC1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_USART1_UART_Init(void);
 
-uint16_t Uset;
-uint16_t DMA_buffer[0x03];
+uint16_t Uset = 0x00;
+uint16_t DMA_buffer[0x02];
 uint16_t U1[U_ARRAY_SIZE];
 uint16_t U2[U_ARRAY_SIZE];
-uint16_t U3[U_ARRAY_SIZE];
+//uint16_t U3[U_ARRAY_SIZE];
+float Pset[P_NUM] = { 0.0, 0.1,  0.2,  0.3,  0.4,  0.5,  0.6,  0.7,  0.8,  0.9,
+					 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0,
+					 20.0 };
 
 uint32_t DMA_bufer_index = 0x00;
 volatile uint8_t DMA_bufer_is_updated = 0x00;
@@ -30,12 +33,14 @@ uint16_t byte1 = 0x00;
 uint16_t byte2 = 0x00;
 
 uint8_t button_on = 0x00;
+uint8_t sw_button = 0x00;
 uint8_t new_iteration = 0x00;
+
 float Rmes = R_MES;
-float Pcnst = P_CONST;
+float Pcnst;
+float k_div;
 
-
-float u1, u2, u3;
+float u1, u2, u3, Uf;
 float Icur;
 float Pcur;
 
@@ -51,9 +56,12 @@ MX_DAC1_Init();
 MX_TIM6_Init();
 MX_USART1_UART_Init();
 
-HAL_ADC_Start_DMA(&hadc1, (uint32_t*) DMA_buffer, 0x03);
+HAL_ADC_Start_DMA(&hadc1, (uint32_t*) DMA_buffer, 0x02);
 TIM6 -> CR1 |= TIM_CR1_CEN;
+NVIC_EnableIRQ(EXTI0_IRQn);
 
+k_div = 10.0 / (30.0 + 10.0);
+Pcnst = 0.25;
 
 
 	while (1)
@@ -63,26 +71,33 @@ TIM6 -> CR1 |= TIM_CR1_CEN;
 			/*
 			 * 		Current power consumption calculating
 			 */
-			u1 = 2 * (3.3 * ((float) DMA_buffer[0] / 0xFFF));
-			u2 = 2 * (3.3 * ((float) DMA_buffer[1] / 0xFFF));
-			u3 = 2 * (3.3 * ((float) DMA_buffer[2] / 0xFFF));
+			u1 = (3.0 * ((float) DMA_buffer[0] / 0xFFF)) / k_div;
+			u2 = (3.0 * ((float) DMA_buffer[1] / 0xFFF)) / k_div;
 
-			Icur = (u1 - u3) / Rmes;
-			Pcur = Icur * (u3 - u2);
+			Icur = (u1 - u2) / Rmes;
+			Pcur = Icur * u2;
+
+			//Uset = Uset + 10;
+ 			Uf = Uset*(3.0/0xFFF);
+
 
 			/*
 			 * 		Impact action
 			 */
 
-			if ((Pcur > (0.9 * Pcnst)) &&
-				(Pcur < (1.1 * Pcnst)))
+			if ((Pcur > (0.95 * Pcnst)) &&
+				(Pcur < (1.05 * Pcnst)))
 			{	}
 
 			else
 			{
 				if (Pcur < Pcnst)
 				{
-					Uset ++;
+					Uset = Uset + 1;
+					if (Uset >= 0xFFF)
+					{
+						Uset = 0xFFF;
+					}
 				}
 
 				else if (Pcur > Pcnst)
@@ -91,45 +106,45 @@ TIM6 -> CR1 |= TIM_CR1_CEN;
 				}
 			}
 		}
+
+
+
+			/*
+			 * 		Store voltage data capturing by DMA in the base array
+			 */
+			for (uint8_t sw = 0x00; sw < 0x03; sw ++)
+			{
+				switch (sw)
+				{
+					case 0:
+						U1[DMA_bufer_index] = DMA_buffer[0];
+						break;
+
+					case 1:
+						U2[DMA_bufer_index] = DMA_buffer[1];
+						break;
+
+					/*case 2:
+						U3[DMA_bufer_index] = DMA_buffer[2];
+						break;
+					*/
+				}
+			}
+
+			DMA_bufer_index ++;
+
+			if ((Uset == 0xFFC) || (DMA_bufer_index == U_ARRAY_SIZE))
+			{
+				//NVIC_DisableIRQ(TIM6_DAC_IRQn);
+				//NVIC_EnableIRQ(EXTI0_IRQn);
+				DMA_bufer_index = 0x00;
+				transmittion_en = 0x01;
+				GPIOE -> ODR |= GPIO_ODR_OD8;
+			}
+			DMA_bufer_is_updated = 0x00;
 	}
 }
-//
-//
-//
-//			/*
-//			 * 		Store voltage data capturing by DMA in the base array
-//			 */
-//			for (uint8_t sw = 0x00; sw < 0x04; sw ++)
-//			{
-//				switch (sw)
-//				{
-//					case 0:
-//						U1[DMA_bufer_index] = DMA_buffer[0];
-//						break;
-//
-//					case 1:
-//						U2[DMA_bufer_index] = DMA_buffer[1];
-//						break;
-//
-//					case 2:
-//						U3[DMA_bufer_index] = DMA_buffer[2];
-//						break;
-//				}
-//			}
-//
-//			DMA_bufer_index ++;
-//
-//			if ((Uset == 0xFFC) || (DMA_bufer_index == U_ARRAY_SIZE))
-//			{
-//				NVIC_DisableIRQ(TIM6_DAC_IRQn);
-//				NVIC_EnableIRQ(EXTI0_IRQn);
-//				DMA_bufer_index = 0x00;
-//				transmittion_en = 0x01;
-//				GPIOE -> ODR |= GPIO_ODR_OD8;
-//			}
-//			DMA_bufer_is_updated = 0x00;
-//		}
-//
+
 //		/*
 //		 * 		Launch data transmission in a full transistor open case
 //		 */
@@ -215,8 +230,8 @@ TIM6 -> CR1 |= TIM_CR1_CEN;
 //				GPIOE -> ODR |= GPIO_ODR_OD8;
 //			}
 //		}
-//	}
 //}
+
 
 
 
@@ -283,7 +298,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.NbrOfConversion = 3;
+  hadc1.Init.NbrOfConversion = 2;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.NbrOfDiscConversion = 1;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
@@ -324,12 +339,15 @@ static void MX_ADC1_Init(void)
    }
    /** Configure Regular Channel
    */
-   sConfig.Channel = ADC_CHANNEL_8;
+
+   /*sConfig.Channel = ADC_CHANNEL_8;
    sConfig.Rank = ADC_REGULAR_RANK_3;
    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
    {
      Error_Handler();
    }
+   */
+
    HAL_ADC_Start(&hadc1);
 }
 
@@ -363,7 +381,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 0x9C3F;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 0x01;
+  htim6.Init.Period = 0x1;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -437,6 +455,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = GPIO_PIN_0;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA3 */
+  GPIO_InitStruct.Pin = GPIO_PIN_3;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
