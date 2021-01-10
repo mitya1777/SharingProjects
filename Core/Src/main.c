@@ -77,14 +77,11 @@ Pcnst = 0.25;
 			Icur = (u1 - u2) / Rmes;
 			Pcur = Icur * u2;
 
-			//Uset = Uset + 10;
  			Uf = Uset*(3.0/0xFFF);
-
 
 			/*
 			 * 		Impact action
 			 */
-
 			if ((Pcur > (0.95 * Pcnst)) &&
 				(Pcur < (1.05 * Pcnst)))
 			{	}
@@ -105,14 +102,13 @@ Pcnst = 0.25;
 					Uset --;
 				}
 			}
-		}
 
-
+			DAC1 -> DHR12R2 = Uset;
 
 			/*
 			 * 		Store voltage data capturing by DMA in the base array
 			 */
-			for (uint8_t sw = 0x00; sw < 0x03; sw ++)
+			for (uint8_t sw = 0x00; sw < 0x02; sw ++)
 			{
 				switch (sw)
 				{
@@ -123,25 +119,28 @@ Pcnst = 0.25;
 					case 1:
 						U2[DMA_bufer_index] = DMA_buffer[1];
 						break;
-
-					/*case 2:
-						U3[DMA_bufer_index] = DMA_buffer[2];
-						break;
-					*/
 				}
 			}
 
 			DMA_bufer_index ++;
+			if (DMA_bufer_index == 0xFFF)
+			{
+				DMA_bufer_index = 0x00;
+			}
 
-			if ((Uset == 0xFFC) || (DMA_bufer_index == U_ARRAY_SIZE))
+			DMA_bufer_is_updated = 0x00;
+
+			/*if ((Uset == 0xFFC) || (DMA_bufer_index == U_ARRAY_SIZE))
 			{
 				//NVIC_DisableIRQ(TIM6_DAC_IRQn);
 				//NVIC_EnableIRQ(EXTI0_IRQn);
 				DMA_bufer_index = 0x00;
 				transmittion_en = 0x01;
 				GPIOE -> ODR |= GPIO_ODR_OD8;
+
 			}
-			DMA_bufer_is_updated = 0x00;
+			*/
+		}
 	}
 }
 
@@ -379,7 +378,7 @@ static void MX_TIM6_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 0x9C3F;
+  htim6.Init.Prescaler = 0xF9F;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim6.Init.Period = 0x1;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;

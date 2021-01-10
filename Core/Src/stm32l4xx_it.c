@@ -17,6 +17,9 @@ extern uint16_t Uset;
 extern float Pcnst;
 extern float Pset[P_NUM];
 
+uint8_t ADC_ready_F = 0x00;
+uint64_t fix_a = 0x00;
+
 void NMI_Handler(void)
 {}
 
@@ -62,9 +65,10 @@ void SysTick_Handler(void)
 
 void DMA1_Channel1_IRQHandler(void)
 {
-   DMA1 -> IFCR |= DMA_IFCR_CGIF1;
-   DMA_bufer_is_updated = 0x01;
- }
+	DMA1 -> IFCR |= DMA_IFCR_CGIF1;
+	DMA_bufer_is_updated = 0x01;
+	ADC_ready_F = 0x00;
+}
 
 void USART1_IRQHandler(void)
 {
@@ -79,13 +83,13 @@ void USART1_IRQHandler(void)
 void TIM6_DAC_IRQHandler(void)
 {
   TIM6 -> SR &= ~TIM_SR_UIF;
-  DAC1 -> DHR12R2 = Uset;
-  if (DMA_bufer_is_updated == 0x00)
+  if ((DMA_bufer_is_updated == 0x00) && (ADC_ready_F == 0x00))
   {
 	  ADC1 -> CR |= ADC_CR_ADSTART;
+	  ADC_ready_F = 0x01;
+	  GPIOA -> ODR ^= GPIO_ODR_OD3;
+	 // uint64_t fix_a ++;
   }
-
-  GPIOA -> ODR ^= GPIO_ODR_OD3;
 }
 
 void EXTI0_IRQHandler(void)
